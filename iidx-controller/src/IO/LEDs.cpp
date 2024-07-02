@@ -1,27 +1,53 @@
 #include <stdint.h>
 
 #include <Arduino.h>
+#include <FastLED.h>
 
 #include "../Configuration.h"
 
+#include "Encoder.h"
 #include "LEDs.h"
 
-void initialise_leds() {
-    for (int i = 0; i < NUM_LEDS; i++) {
-        pinMode(led_pins[i], OUTPUT);
-        digitalWrite(led_pins[i], HIGH);
-    }
+CRGB leds[TOTAL_LED_COUNT];
 
-    delay(200);
+DEFINE_GRADIENT_PALETTE(Spectral_11_gp){
+    0, 73, 1, 8,
+    23, 73, 1, 8,
+    23, 159, 11, 13,
+    46, 159, 11, 13,
+    46, 227, 39, 9,
+    69, 227, 39, 9,
+    69, 249, 109, 22,
+    92, 249, 109, 22,
+    92, 252, 191, 55,
+    115, 252, 191, 55,
+    115, 255, 255, 123,
+    139, 255, 255, 123,
+    139, 194, 233, 69,
+    162, 194, 233, 69,
+    162, 90, 186, 84,
+    185, 90, 186, 84,
+    185, 23, 139, 85,
+    208, 23, 139, 85,
+    208, 3, 63, 120,
+    231, 3, 63, 120,
+    231, 19, 19, 82,
+    255, 19, 19, 82};
 
-    for (int i = 0; i < NUM_LEDS; i++) {
-        digitalWrite(led_pins[i], LOW);
-    }
+CRGBPalette16 colorPalette = Spectral_11_gp;
+
+uint8_t turntableBrightness = 200;
+
+void initialise_leds()
+{
+    FastLED.addLeds<WS2812B, FASTLED_PIN, GRB>(leds, TOTAL_LED_COUNT); // GRB ordering is typical
 }
 
-void write_leds(uint16_t led_status, bool flipped) {
-    if (flipped) {
-        led_status = led_status << (16 - NUM_LEDS);
+void write_leds(uint16_t led_status, bool flipped)
+{
+    if (flipped)
+    {
+        led_status = led_status << (16 - BUTTON_COUNT);
 
         // thanks http://graphics.stanford.edu/~seander/bithacks.html#ReverseByteWith32Bits
         // flip first half of led_status
@@ -36,7 +62,30 @@ void write_leds(uint16_t led_status, bool flipped) {
         led_status = (b << 8) | a;
     }
 
-    for (int i = 0; i < NUM_LEDS; i++) {
-        digitalWrite(led_pins[i], ((led_status >> i) & 1));
+    int encoderValue = get_encoder_virtual_state();
+
+    // handle the leds for the buttons
+    for (int i = 0; i < BUTTON_COUNT; i++)
+    {
+        bool ledStatus = ((led_status >> i) & 1);
+        if (ledStatus)
+        {
+            leds[i] = ColorFromPalette(colorPalette, encoderValue + (i * 255 / (TOTAL_LED_COUNT - BUTTON_COUNT)));
+        }
+        else
+        {
+            // turn leds slowly to black instead of turning them off instantly
+            leds[i].fadeToBlackBy(25);
+        }
     }
+
+    // handle the leds for the turntable
+    int ledPosition = map(encoderValue, 0, 255, 0, (TOTAL_LED_COUNT - BUTTON_COUNT) - 1);
+
+    for (int i = BUTTON_COUNT; i < TOTAL_LED_COUNT; i++)
+    {
+        leds[i] = ColorFromPalette(colorPalette, encoderValue + (i * 255 / (TOTAL_LED_COUNT - BUTTON_COUNT) / 8), turntableBrightness);
+    }
+
+    FastLED.show();
 }

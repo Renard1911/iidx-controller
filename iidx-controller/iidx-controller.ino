@@ -6,12 +6,12 @@
 #include "src/IO/Encoder.h"
 #include "src/IO/LEDs.h"
 #include "src/Configuration.h"
-
+#include <FastLED.h>
 
 static configuration_struct *config;
 
-
-void setup() {
+void setup()
+{
     initialise_configuration();
     initialise_buttons();
     initialise_encoder();
@@ -24,9 +24,12 @@ void setup() {
     GlobalInterruptEnable();
 }
 
-void loop() {
-    if (config->led_mode == 0 || config->led_mode == 2) {
-        if ((millis() - get_last_led_update()) > 3000 || config->led_mode == 2) {
+void loop()
+{
+    if (config->led_mode == 0 || config->led_mode == 2)
+    {
+        if ((millis() - get_last_led_update()) > 16 || config->led_mode == 2)
+        {
             write_leds(get_button_state(), false);
         }
     }
